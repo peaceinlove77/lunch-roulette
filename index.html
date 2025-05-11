@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>점심 메뉴 룰렛</title>
+  <!-- GSAP -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+  <!-- canvas‑confetti -->
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+  <style>
+    :root {
+      --wheel-size: min(80vw, 400px);
+      --pointer-size: 40px;
+    }
+    * {box-sizing: border-box;}
+    body {
+      font-family: "Pretendard", "Noto Sans KR", sans-serif;
+      background: #f2f4f7;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      min-height: 100vh;
+      margin: 0;
+      padding: 40px 1rem;
+    }
+    h1 {margin-bottom: 24px; font-size: clamp(1.6rem, 4vw, 2.4rem);}
+
+    /* 입력 & 버튼 */
+    #controls {display:flex;gap:8px;width:var(--wheel-size);margin-bottom:24px;}
+    #menu-input {flex:1;padding:10px 14px;font-size:1rem;border:1px solid #d1d5db;border-radius:8px;outline:none;}
+    .ctrl-btn {padding:10px 18px;font-size:1rem;color:#fff;border:none;border-radius:8px;cursor:pointer;}
+    #add-btn {background:#111827;}
+    #delete-btn {background:#ef4444;}
+
+    /* 룰렛 */
+    #wheel-wrapper {position:relative;width:var(--wheel-size);height:var(--wheel-size);}  
+    #spinner {width:100%;height:100%;}
+    #wheelCanvas {width:100%;height:100%;transform:rotate(-90deg);}  
+
+    /* 고정 화살표 */
+    #pointer {position:absolute;top:calc(var(--pointer-size)*-0.5);left:50%;transform:translateX(-50%);width:0;height:0;border-left:calc(var(--pointer-size)/2) solid transparent;border-right:calc(var(--pointer-size)/2) solid transparent;border-top:var(--pointer-size) solid #111;z-index:2;}
+
+    /* 돌려 버튼 */
+    #spin-btn {margin-top:32px;padding:12px 40px;font-size:1.1rem;background:#111827;color:#fff;border:none;border-radius:9999px;cursor:pointer;transition:background .25s;}
+    #spin-btn:disabled{opacity:.5;cursor:not-allowed;}#spin-btn:not(:disabled):hover{background:#000;}
+
+    /* ----- 결과 모달 ----- */
+    #modal-overlay {position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.35);backdrop-filter:blur(4px);opacity:0;pointer-events:none;transition:opacity .3s ease;z-index:1000;}
+    #modal-overlay.show {opacity:1;pointer-events:auto;}
+    .modal-card {background:#fff;border-radius:24px;padding:40px 32px;width:80%;max-width:320px;text-align:center;box-shadow:0 20px 40px rgba(0,0,0,.15);}  
+    .modal-card h2 {margin:0 0 12px;font-size:1.2rem;font-weight:500;}
+    .modal-card strong {font-size:1.8rem;font-weight:700;display:block;margin-bottom:8px;}
+    #confirm-btn {margin-top:16px;padding:10px 28px;font-size:1rem;background:#111827;color:#fff;border:none;border-radius:9999px;cursor:pointer;}
+  </style>
+</head>
+<body>
+  <h1>오늘 점심 뭐 먹을까? 🍽️</h1>
+
+  <!-- 입력부 -->
+  <div id="controls">
+    <input id="menu-input" type="text" placeholder="메뉴 이름 입력" />
+    <button id="add-btn" class="ctrl-btn">추가</button>
+    <button id="delete-btn" class="ctrl-btn">삭제</button>
+  </div>
+
+  <!-- 룰렛 -->
+  <div id="wheel-wrapper">
+    <div id="spinner"><canvas id="wheelCanvas" width="400" height="400"></canvas></div>
+    <div id="pointer"></div>
+  </div>
+
+  <button id="spin-btn">돌려!</button>
+
+  <!-- 결과 모달 -->
+  <div id="modal-overlay">
+    <div class="modal-card">
+      <h2>오늘의 점심은</h2>
+      <strong id="result-name">김밥</strong>
+      <button id="confirm-btn">확인</button>
+    </div>
+  </div>
+
+  <script>
+    // ===== 데이터 =====
+    let menus = ["샐러드", "치킨", "호랑이", "햄버거", "라면", "김밥"];
+
+    // ===== 캔버스 준비 =====
+    const canvas = document.getElementById("wheelCanvas");
+    const ctx = canvas.getContext("2d");
+    const size = canvas.width;
+    const center = size / 2;
+    const radius = center - 10;
+
+    function hslColor(i){return `hsl(${(i*360)/menus.length},75%,60%)`;}
+
+    function drawWheel(){
+      if(menus.length===0){ctx.clearRect(0,0,size,size);return;}
+      const seg=(2*Math.PI)/menus.length;
+      ctx.clearRect(0,0,size,size);
+      ctx.textBaseline="middle";ctx.textAlign="center";ctx.font="bold 18px Pretendard, Noto Sans KR, sans-serif";
+      menus.forEach((menu,i)=>{
+        const s=seg*i,e=s+seg;
+        ctx.beginPath();ctx.moveTo(center,center);ctx.arc(center,center,radius,s,e);ctx.closePath();ctx.fillStyle=hslColor(i);ctx.fill();ctx.strokeStyle="#fff";ctx.lineWidth=2;ctx.stroke();
+        const m=s+seg/2,tx=center+radius*0.6*Math.cos(m),ty=center+radius*0.6*Math.sin(m);
+        ctx.save();ctx.translate(tx,ty);const deg=m*180/Math.PI;ctx.rotate(deg>90&&deg<270?m-Math.PI/2:m+Math.PI/2);ctx.fillStyle="#fff";ctx.fillText(menu,0,0);ctx.restore();
+      });
+    }
+    drawWheel();
+
+    // ===== DOM =====
+    const input=document.getElementById('menu-input');
+    const addBtn=document.getElementById('add-btn');
+    const delBtn=document.getElementById('delete-btn');
+    const spinBtn=document.getElementById('spin-btn');
+    const spinner=document.getElementById('spinner');
+    const overlay=document.getElementById('modal-overlay');
+    const resultName=document.getElementById('result-name');
+    const confirmBtn=document.getElementById('confirm-btn');
+
+    // ===== 메뉴 추가 =====
+    addBtn.addEventListener('click',()=>{
+      const v=input.value.trim();
+      if(!v)return;
+      menus.push(v);
+      input.value='';
+      drawWheel();
+    });
+    input.addEventListener('keyup',e=>{if(e.key==='Enter')addBtn.click();});
+
+    // ===== 메뉴 삭제 =====
+    delBtn.addEventListener('click',()=>{
+      const v=input.value.trim();
+      if(!v)return;
+      const idx=menus.indexOf(v);
+      if(idx>-1){menus.splice(idx,1);drawWheel();input.value='';}
+    });
+
+    // ===== 스핀 =====
+    let spinning=false;
+    spinBtn.addEventListener('click',()=>{
+      if(spinning||menus.length===0)return;
+      spinning=true;spinBtn.disabled=true;gsap.set(spinner,{rotation:0});
+      const seg=360/menus.length;
+      const idx=Math.floor(Math.random()*menus.length);
+      const spins=5+Math.floor(Math.random()*3);
+      const finalRot=360*spins-(idx+0.5)*seg;
+      gsap.to(spinner,{rotation:finalRot,ease:'power3.out',duration:5,onComplete:()=>{
+        spinning=false;spinBtn.disabled=false;
+        showResult(menus[idx]);
+      }});
+    });
+
+    // ===== 결과 모달 & 폭죽 =====
+    function showResult(menu){
+      resultName.textContent=menu;
+      overlay.classList.add('show');
+      fireConfetti();
+    }
+    confirmBtn.addEventListener('click',()=>{overlay.classList.remove('show');});
+
+    function fireConfetti(){
+      const duration=2*1000;
+      const animationEnd=Date.now()+duration;
+      const defaults={startVelocity:30,spread:360,ticks:60,zIndex:1100};
+      function frame(){
+        const timeLeft=animationEnd-Date.now();
+        confetti(Object.assign({},defaults,{particleCount:timeLeft>0?50:0,origin:{x:Math.random(),y:Math.random()-0.2}}));
+        if(timeLeft>0){requestAnimationFrame(frame);}  }
+      frame();
+    }
+  </script>
+</body>
+</html>
