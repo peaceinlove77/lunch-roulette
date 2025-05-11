@@ -3,11 +3,32 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>점심 메뉴 룰렛</title>
+  <title>Lunch Roulette – 점심 메뉴 룰렛</title>
+
+  <!-- PWA & Theming -->
+  <link rel="manifest" href="manifest.json" />
+  <meta name="theme-color" content="#111827" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <link rel="apple-touch-icon" href="icon.png" />
+
+  <!-- Open Graph / SNS Previews -->
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="Lunch Roulette – 점심 메뉴 룰렛" />
+  <meta property="og:description" content="점심 메뉴 고민을 끝내주는 룰렛 앱! 돌려서 오늘의 메뉴를 결정해 보세요." />
+  <meta property="og:image" content="og_image.png" />
+  <meta property="og:url" content="https://peaceinlove77.github.io/lunch-roulette/" />
+  <meta property="og:locale" content="ko_KR" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="Lunch Roulette – 점심 메뉴 룰렛" />
+  <meta name="twitter:description" content="점심 메뉴 고민은 끝! 돌려서 메뉴를 결정하세요." />
+  <meta name="twitter:image" content="og_image.png" />
+
   <!-- GSAP -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
-  <!-- canvas‑confetti -->
-  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js" defer></script>
+  <!-- canvas-confetti -->
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js" defer></script>
+
   <style>
     :root {
       --wheel-size: min(80vw, 400px);
@@ -83,7 +104,7 @@
   </div>
 
   <script>
-    // ===== 데이터 =====
+    // ===== 초기 데이터 =====
     let menus = ["샐러드", "치킨", "호랑이", "햄버거", "라면", "김밥"];
 
     // ===== 캔버스 준비 =====
@@ -93,7 +114,7 @@
     const center = size / 2;
     const radius = center - 10;
 
-    function hslColor(i){return `hsl(${(i*360)/menus.length},75%,60%)`;}
+    const hslColor = i => `hsl(${(i*360)/menus.length},75%,60%)`;
 
     function drawWheel(){
       if(menus.length===0){ctx.clearRect(0,0,size,size);return;}
@@ -119,7 +140,7 @@
     const resultName=document.getElementById('result-name');
     const confirmBtn=document.getElementById('confirm-btn');
 
-    // ===== 메뉴 추가 =====
+    // ===== 메뉴 추가/삭제 =====
     addBtn.addEventListener('click',()=>{
       const v=input.value.trim();
       if(!v)return;
@@ -127,17 +148,15 @@
       input.value='';
       drawWheel();
     });
-    input.addEventListener('keyup',e=>{if(e.key==='Enter')addBtn.click();});
-
-    // ===== 메뉴 삭제 =====
     delBtn.addEventListener('click',()=>{
       const v=input.value.trim();
       if(!v)return;
       const idx=menus.indexOf(v);
       if(idx>-1){menus.splice(idx,1);drawWheel();input.value='';}
     });
+    input.addEventListener('keyup',e=>{if(e.key==='Enter')addBtn.click();});
 
-    // ===== 스핀 =====
+    // ===== 룰렛 스핀 =====
     let spinning=false;
     spinBtn.addEventListener('click',()=>{
       if(spinning||menus.length===0)return;
@@ -147,8 +166,7 @@
       const spins=5+Math.floor(Math.random()*3);
       const finalRot=360*spins-(idx+0.5)*seg;
       gsap.to(spinner,{rotation:finalRot,ease:'power3.out',duration:5,onComplete:()=>{
-        spinning=false;spinBtn.disabled=false;
-        showResult(menus[idx]);
+        spinning=false;spinBtn.disabled=false;showResult(menus[idx]);
       }});
     });
 
@@ -161,15 +179,22 @@
     confirmBtn.addEventListener('click',()=>{overlay.classList.remove('show');});
 
     function fireConfetti(){
-      const duration=2*1000;
-      const animationEnd=Date.now()+duration;
+      const duration=2000;
+      const end=Date.now()+duration;
       const defaults={startVelocity:30,spread:360,ticks:60,zIndex:1100};
       function frame(){
-        const timeLeft=animationEnd-Date.now();
+        const timeLeft=end-Date.now();
         confetti(Object.assign({},defaults,{particleCount:timeLeft>0?50:0,origin:{x:Math.random(),y:Math.random()-0.2}}));
-        if(timeLeft>0){requestAnimationFrame(frame);}  }
+        if(timeLeft>0)requestAnimationFrame(frame);
+      }
       frame();
+    }
+
+    // ===== Service Worker 등록 =====
+    if('serviceWorker' in navigator){
+      window.addEventListener('load',()=>{navigator.serviceWorker.register('sw.js').catch(console.error);});
     }
   </script>
 </body>
 </html>
+ 
